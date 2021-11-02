@@ -20,3 +20,4 @@ coverage.html
 coverage.txt
 .idea/
 __debug_bin
+converge.*
