@@ -15,7 +15,7 @@ import (
 
 func Write(configFilePath string, fileName string, content string, c context.Context) error {
 
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	dirPath := configFilePath + "/"
 	var err error
 	if _, err = os.Stat(dirPath); os.IsNotExist(err) {
@@ -72,7 +72,7 @@ func Read(filePath string) (string, error) {
 
 func ReadFrom(file io.Reader, c context.Context) (string, error) {
 	b, err := ioutil.ReadAll(file) //.ReadFile(filePath)
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	if err != nil {
 
 		log.Panic(err.Error())
@@ -83,7 +83,7 @@ func ReadFrom(file io.Reader, c context.Context) (string, error) {
 }
 
 func Writeover(filepath string, content string, c context.Context) {
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	pos := strings.LastIndex(filepath, "/")
 	dirPath := filepath[:pos+1]
 	err := os.MkdirAll(dirPath, os.ModePerm)
@@ -118,7 +118,7 @@ func Writeover(filepath string, content string, c context.Context) {
 
 func WriteToPath(path string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
 	lastIndex := strings.LastIndex(path, "/")
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	configFilePath := path[0:lastIndex]
 	// fileName := path[lastIndex+1:]
 
@@ -152,7 +152,7 @@ func WriteToPath(path string, configFileContent map[string]interface{}, env stri
 
 func WriteToAppPath(path, appname string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
 
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	rediscli := redisops.Pool().Get()
 
 	defer rediscli.Close()
@@ -171,9 +171,9 @@ func WriteToAppPath(path, appname string, configFileContent map[string]interface
 	return writeContent, err
 }
 
-//获取指定目录下的所有文件,包含子目录下的文件
+// 获取指定目录下的所有文件,包含子目录下的文件
 func GetAllFiles(dirPth string, c context.Context) []string {
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 	var files []string
 	dir, err := ioutil.ReadDir(dirPth)
 	if err != nil {

@@ -14,7 +14,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-/**
+/*
+*
 获取val变量对应类型的字符串值
 */
 func StrValOfType(val interface{}) string {
@@ -25,11 +26,12 @@ func StrValOfInterface(val interface{}) string {
 	return fmt.Sprintf("%v", val)
 }
 
-/**
+/*
+*
 将yaml字符串反序列化成map对象
 */
 func ConvertYamlToMap(ymlString string, c context.Context) map[interface{}]interface{} {
-	logger := logagent.Inst(c)
+	logger := logagent.InstArch(c)
 	m := make(map[interface{}]interface{})
 
 	err := yaml.Unmarshal([]byte(ymlString), &m)
@@ -39,12 +41,13 @@ func ConvertYamlToMap(ymlString string, c context.Context) map[interface{}]inter
 	return m
 }
 
-/**
+/*
+*
 将map序列化成yaml字符串
 */
 func ConvertMapToYaml(m *map[interface{}]interface{}, c context.Context) string {
 	out, err := yaml.Marshal(m)
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 
 	if err != nil {
 		log.Panicf("error: %v", err)
@@ -52,12 +55,13 @@ func ConvertMapToYaml(m *map[interface{}]interface{}, c context.Context) string 
 	return string(out)
 }
 
-/**
+/*
+*
 将string map序列化成yaml字符串
 */
 func ConvertStrMapToYaml(m *map[string]interface{}, c context.Context) string {
 	out, err := yaml.Marshal(m)
-	log := logagent.Inst(c)
+	log := logagent.InstArch(c)
 
 	if err != nil {
 		log.Panicf("error: %v", err)
