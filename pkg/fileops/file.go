@@ -116,6 +116,40 @@ func Writeover(filepath string, content string, c context.Context) {
 	}
 }
 
+func WriteToPathWithFilename(path string, configFileContent map[string]interface{}, filenameenv string, c context.Context) (string, error) {
+	lastIndex := strings.LastIndex(path, "/")
+	log := logagent.InstArch(c)
+	configFilePath := path[0:lastIndex]
+	// fileName := path[lastIndex+1:]
+
+	// dotIndex := strings.LastIndex(fileName, ".")
+	// var filenamestr = fileName[0:dotIndex] + "-" + env + ".yml"
+	// var filenamestr = "application-" + env + ".yml"
+
+	str, err := Read(configFilePath + string(os.PathSeparator) + filenameenv)
+	log.Print(filenameenv)
+	var writeContent string
+
+	if err != nil {
+
+		writeContent = convertops.ConvertStrMapToYaml(&configFileContent, c)
+	} else {
+		m := convertops.ConvertYamlToMap(str, c)
+		// if _, ok := m["af-arch"]; ok {
+		// 	m["af-arch"].(map[interface{}]interface{})["resource"] = configFileContent["af-arch"].(map[string]interface{})["resource"]
+		// } else {
+		// 	m["af-arch"] = configFileContent["af-arch"]
+		// }
+		m["af-arch"] = configFileContent["af-arch"]
+
+		writeContent = convertops.ConvertMapToYaml(&m, c)
+	}
+
+	err = Write(configFilePath, filenameenv, writeContent, c)
+
+	return writeContent, err
+}
+
 func WriteToPath(path string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
 	lastIndex := strings.LastIndex(path, "/")
 	log := logagent.InstArch(c)
