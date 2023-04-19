@@ -220,7 +220,7 @@ func GetFromRepo(team, appname, envdc, version, region, filename string, c conte
 	value, err := redis.String(rediscli.Do("HGET", "confsolver-"+appname, filename))
 	if err != nil || value == "" {
 		log.Print("get from repo")
-		url := "http://af-nexus.kube.com/repository/fls-aflm" + GetRepoPath(team, appname, envdc, version, region) + "/" + filename
+		url := "http://af-nexus.kube.com/repository/fls-aflm" + GetRepoPath(team, appname, envdc, version, region) + filename
 		log.Print("url: " + url)
 		username := "admin"
 		password := "Paic,1234"
@@ -252,7 +252,10 @@ func GetFromRepo(team, appname, envdc, version, region, filename string, c conte
 		fmt.Println("Response Status Code:", resp.StatusCode)
 		fmt.Println("Response Body:", value)
 		_, err = rediscli.Do("HSET", "confsolver-"+appname, filename, value)
-		log.Error(err)
+		if err != nil {
+			log.Error("redis set error")
+		}
+
 		// rediscli.Do("EXPIRE", "confsolver-"+appname, 60*10)
 
 		// return string(resbody)
@@ -265,7 +268,7 @@ func GetFromRepo(team, appname, envdc, version, region, filename string, c conte
 }
 
 func GetRepoPath(team, appname, envdc, version, region string) string {
-	return "/consolver/" + team + "/" + appname + "/" + envdc + "/" + version + "/" + region + "/"
+	return "/consolver/" + team + "/" + appname + "/" + version + "/" + envdc + "/" + region + "/"
 }
 
 func WriteToNexus(bodystring, filename, team, appname, envdc, version, region string, c context.Context) {
