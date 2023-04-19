@@ -3,6 +3,7 @@ module github.com/max-gui/fileconvagt
 go 1.18
 
 require (
+	github.com/garyburd/redigo v1.6.4
 	github.com/max-gui/logagent v0.0.0-20211102065508-44b5d1757320
 	github.com/max-gui/redisagent v0.0.0-20211104054521-b437c64da1c5
 	github.com/stretchr/testify v1.7.1

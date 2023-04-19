@@ -1,13 +1,16 @@
 package fileops
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"strings"
 
+	"github.com/garyburd/redigo/redis"
 	"github.com/max-gui/fileconvagt/pkg/convertops"
 	"github.com/max-gui/logagent/pkg/logagent"
 	"github.com/max-gui/redisagent/pkg/redisops"
@@ -61,7 +64,7 @@ func checkFileExist(fileName string) bool {
 }
 
 func Read(filePath string) (string, error) {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 
 	if err != nil {
 		return "", err
@@ -71,7 +74,7 @@ func Read(filePath string) (string, error) {
 }
 
 func ReadFrom(file io.Reader, c context.Context) (string, error) {
-	b, err := ioutil.ReadAll(file) //.ReadFile(filePath)
+	b, err := io.ReadAll(file) //.ReadFile(filePath)
 	log := logagent.InstArch(c)
 	if err != nil {
 
@@ -150,7 +153,7 @@ func WriteToPathWithFilename(path string, configFileContent map[string]interface
 	return writeContent, err
 }
 
-func WriteToPath(path string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
+func WriteToPath(path, filename string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
 	lastIndex := strings.LastIndex(path, "/")
 	log := logagent.InstArch(c)
 	configFilePath := path[0:lastIndex]
@@ -158,10 +161,10 @@ func WriteToPath(path string, configFileContent map[string]interface{}, env stri
 
 	// dotIndex := strings.LastIndex(fileName, ".")
 	// var filenamestr = fileName[0:dotIndex] + "-" + env + ".yml"
-	var filenamestr = "application-" + env + ".yml"
+	// var filenamestr = "application-" + env + ".yml"
 
-	str, err := Read(configFilePath + string(os.PathSeparator) + filenamestr)
-	log.Print(filenamestr)
+	str, err := Read(configFilePath + string(os.PathSeparator) + filename)
+	log.Print(filename)
 	var writeContent string
 
 	if err != nil {
@@ -179,12 +182,12 @@ func WriteToPath(path string, configFileContent map[string]interface{}, env stri
 		writeContent = convertops.ConvertMapToYaml(&m, c)
 	}
 
-	err = Write(configFilePath, filenamestr, writeContent, c)
+	err = Write(configFilePath, filename, writeContent, c)
 
 	return writeContent, err
 }
 
-func WriteToAppPath(path, appname string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
+func WriteToRepo(path, filename, team, appname, writeContent string, envdc, version, region string, c context.Context) (string, error) {
 
 	log := logagent.InstArch(c)
 	rediscli := redisops.Pool().Get()
@@ -192,14 +195,164 @@ func WriteToAppPath(path, appname string, configFileContent map[string]interface
 	defer rediscli.Close()
 
 	// configFilePath := path
-	var filenamestr = "application-" + env + ".yml"
+	// var filenamestr = "application-" + env + ".yml"
 
-	log.Print(filenamestr)
+	log.Print(filename)
+
+	// writeContent := convertops.ConvertStrMapToYaml(&configFileContent, c)
+
+	// err := Write(configFilePath, filenamestr, writeContent)
+	//FIXME: write config to nexus repo
+	// bodystring, filename, team, appname string)
+	WriteToNexus(writeContent, filename, team, appname, envdc, version, region, c)
+	_, err := rediscli.Do("HSET", "confsolver-"+appname, filename, writeContent)
+	rediscli.Do("EXPIRE", "confsolver-"+appname, 60*10)
+
+	return writeContent, err
+}
+
+func GetFromRepo(team, appname, envdc, version, region, filename string, c context.Context) string {
+	log := logagent.InstArch(c)
+
+	rediscli := redisops.Pool().Get()
+
+	defer rediscli.Close()
+	value, err := redis.String(rediscli.Do("HGET", "confsolver-"+appname, filename))
+	if err != nil || value == "" {
+		log.Print("get from repo")
+		url := "http://af-nexus.kube.com/repository/fls-aflm" + GetRepoPath(team, appname, envdc, version, region) + "/" + filename
+		log.Print("url: " + url)
+		username := "admin"
+		password := "Paic,1234"
+
+		// Create a HTTP client with basic authentication
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Println("Failed to create HTTP request:", err)
+			os.Exit(1)
+		}
+		req.SetBasicAuth(username, password)
+
+		// Perform the HTTP request
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Failed to perform HTTP request:", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		resbody, err := io.ReadAll(resp.Body)
+
+		value = string(resbody)
+		if err != nil || resp.StatusCode != 200 {
+			log.Panic("consolver gen :" + value)
+		}
+		// Print the response status code and body
+		fmt.Println("Response Status Code:", resp.StatusCode)
+		fmt.Println("Response Body:", value)
+		_, err = rediscli.Do("HSET", "confsolver-"+appname, filename, value)
+		log.Error(err)
+		// rediscli.Do("EXPIRE", "confsolver-"+appname, 60*10)
+
+		// return string(resbody)
+	} else {
+		log.Print("get from redis")
+	}
+
+	rediscli.Do("EXPIRE", "confsolver-"+appname, 60*10)
+	return value
+}
+
+func GetRepoPath(team, appname, envdc, version, region string) string {
+	return "/consolver/" + team + "/" + appname + "/" + envdc + "/" + version + "/" + region + "/"
+}
+
+func WriteToNexus(bodystring, filename, team, appname, envdc, version, region string, c context.Context) {
+	// Open the file to be uploaded
+	// file, err := os.Open("1.txt")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
+
+	// Create a new HTTP request
+	req, err := http.NewRequest("POST", "http://af-nexus.kube.com/service/rest/v1/components?repository=fls-aflm", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// Set basic authentication header
+	req.SetBasicAuth("admin", "Paic,1234")
+
+	// Create a multipart form
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add the directory field to the form
+	err = writer.WriteField("raw.directory", GetRepoPath(team, appname, envdc, version, region))
+	if err != nil {
+		panic(err)
+	}
+
+	err = writer.WriteField("raw.asset1.filename", filename)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a file part for the file field
+	filePart, err := writer.CreateFormFile("raw.asset1", filename)
+	if err != nil {
+		panic(err)
+	}
+	// filePart.Write(bodybytes)
+	// Copy the file content to the file part
+	stringreader := strings.NewReader(bodystring)
+	_, err = io.Copy(filePart, stringreader)
+	if err != nil {
+		panic(err)
+	}
+
+	// Close the multipart writer to finalize the form data
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	// Set the request body as the form data
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Create an HTTP client and make the request
+	client := http.DefaultClient
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	// Print the response status and body
+	fmt.Println("Response Status:", resp.Status)
+	fmt.Println("Response Body:")
+	io.Copy(os.Stdout, resp.Body)
+}
+
+func WriteToAppPath(path, filename, appname string, configFileContent map[string]interface{}, env string, c context.Context) (string, error) {
+
+	log := logagent.InstArch(c)
+	rediscli := redisops.Pool().Get()
+
+	defer rediscli.Close()
+
+	// configFilePath := path
+	// var filenamestr = "application-" + env + ".yml"
+
+	log.Print(filename)
 
 	writeContent := convertops.ConvertStrMapToYaml(&configFileContent, c)
 
 	// err := Write(configFilePath, filenamestr, writeContent)
-	_, err := rediscli.Do("HSET", "confsolver-"+appname, filenamestr, writeContent)
+	_, err := rediscli.Do("HSET", "confsolver-"+appname, filename, writeContent)
 	rediscli.Do("EXPIRE", "confsolver-"+appname, 60*10)
 
 	return writeContent, err
@@ -209,7 +362,7 @@ func WriteToAppPath(path, appname string, configFileContent map[string]interface
 func GetAllFiles(dirPth string, c context.Context) []string {
 	log := logagent.InstArch(c)
 	var files []string
-	dir, err := ioutil.ReadDir(dirPth)
+	dir, err := os.ReadDir(dirPth)
 	if err != nil {
 		log.Panic(err)
 	}

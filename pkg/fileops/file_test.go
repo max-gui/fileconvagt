@@ -2,7 +2,6 @@ package fileops
 
 import (
 	"context"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -21,6 +20,12 @@ func setup() {
 	log.Println(tempdir)
 	filename = "testfile.yml"
 	filefullname = tempdir + string(os.PathSeparator) + filename
+}
+
+func GetAppConfName(env string) string {
+	var filenamestr = "testfile-" + env + ".yml"
+
+	return filenamestr
 }
 
 func teardown() {
@@ -46,7 +51,7 @@ func Test_Read(t *testing.T) {
 	// filename := "testfile"
 	// filefullname := tempdir + string(os.PathSeparator) + filename
 	filecontent = "aaa"
-	ioutil.WriteFile(filefullname, []byte(filecontent), 0644)
+	os.WriteFile(filefullname, []byte(filecontent), 0644)
 
 	str, err := Read(filefullname)
 	// log.Println("fdsafsad")
@@ -71,7 +76,7 @@ func Test_ReadFrom(t *testing.T) {
 	// filefullname := tempdir + string(os.PathSeparator) + filename
 	c := context.Background()
 	filecontent := "aaa"
-	ioutil.WriteFile(filefullname, []byte(filecontent), 0644)
+	os.WriteFile(filefullname, []byte(filecontent), 0644)
 
 	f, _ := os.OpenFile(filefullname, os.O_RDONLY, 0644)
 	// ReadFrom(f)
@@ -160,7 +165,7 @@ func Test_WhiteToPath(t *testing.T) {
 
 	filecontent = convertops.ConvertStrMapToYaml(&mapcontent, c)
 	// test for writing new file
-	WriteToPath(filefullname, writecontent, env, c)
+	WriteToPath(filefullname, GetAppConfName(env), writecontent, env, c)
 
 	var str string
 	str, err := Read(filefullnameext)
@@ -182,7 +187,7 @@ func Test_WhiteToPath(t *testing.T) {
 	})
 
 	filecontent = convertops.ConvertStrMapToYaml(&mapcontent, c)
-	WriteToPath(filefullname, writecontent, env, c)
+	WriteToPath(filefullname, GetAppConfName(env), writecontent, env, c)
 	str, err = Read(filefullnameext)
 
 	assert.NoError(t, err, "read is ok")
@@ -198,7 +203,7 @@ func Test_WhiteToPath(t *testing.T) {
 	})
 
 	filecontent = convertops.ConvertStrMapToYaml(&mapcontent, c)
-	WriteToPath(filefullname, writecontent, env, c)
+	WriteToPath(filefullname, GetAppConfName(env), writecontent, env, c)
 	str, err = Read(filefullnameext)
 
 	assert.NoError(t, err, "read is ok")
@@ -217,4 +222,39 @@ func TestMain(m *testing.M) {
 	teardown()
 	// // 退出
 	os.Exit(exitCode)
+}
+
+func Test_writeToNexus(t *testing.T) {
+
+	GetFromRepo("team", "appname", "envdc", "version", "region", "filename", context.Background())
+
+	type args struct {
+		bodybytes string
+		filename  string
+		team      string
+		appname   string
+		envdc     string
+		version   string
+		region    string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		// TODO: Add test cases.
+		{name: "test",
+			args: args{
+				bodybytes: "test",
+				filename:  "testfile",
+				team:      "testteam",
+				appname:   "testapp",
+				envdc:     "test",
+				version:   "version",
+				region:    "region"},
+		}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			WriteToNexus(tt.args.bodybytes, tt.args.filename, tt.args.team, tt.args.appname, tt.args.envdc, tt.args.version, tt.args.region, context.Background())
+		})
+	}
 }
