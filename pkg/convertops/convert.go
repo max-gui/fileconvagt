@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/max-gui/logagent/pkg/logagent"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 /*
@@ -31,7 +31,7 @@ func StrValOfInterface(val interface{}) string {
 将yaml字符串反序列化成map对象
 */
 func ConvertYamlToMap(ymlString string, c context.Context) map[interface{}]interface{} {
-	logger := logagent.InstArch(c)
+	logger := logagent.RecreateWith(c)
 	m := make(map[interface{}]interface{})
 
 	err := yaml.Unmarshal([]byte(ymlString), &m)
@@ -47,7 +47,7 @@ func ConvertYamlToMap(ymlString string, c context.Context) map[interface{}]inter
 */
 func ConvertMapToYaml(m *map[interface{}]interface{}, c context.Context) string {
 	out, err := yaml.Marshal(m)
-	log := logagent.InstArch(c)
+	log := logagent.RecreateWith(c)
 
 	if err != nil {
 		log.Panicf("error: %v", err)
@@ -61,7 +61,7 @@ func ConvertMapToYaml(m *map[interface{}]interface{}, c context.Context) string 
 */
 func ConvertStrMapToYaml(m *map[string]interface{}, c context.Context) string {
 	out, err := yaml.Marshal(m)
-	log := logagent.InstArch(c)
+	log := logagent.RecreateWith(c)
 
 	if err != nil {
 		log.Panicf("error: %v", err)
